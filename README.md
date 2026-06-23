@@ -1,187 +1,34 @@
 # FestiSpot
 
-FestiSpot is a mobile-first private festival spot-sharing webapp.
+FestiSpot is a mobile-first webapp for festivals, parties, and crowded events where groups want to find each other without using permanent live tracking.
 
-This version is built to run fully on Netlify:
+The idea is simple: when someone finds a good place to stand, sit, dance, or watch a show, they can save that spot for the group. Friends can then see where that person last locked in their spot and use the map to find them.
 
-- Static frontend in `index.html`
-- Netlify Functions in `netlify/functions`
-- Netlify Database for sessions, users, saved spots and signals
-- Netlify Blobs for uploaded profile photos and location photos
+FestiSpot is built around short-lived, intentional sharing. It is not meant to track people while they are walking around. Users choose when they want to be visible, when they are moving, and when they want to disappear from the map.
 
-There is no React/Vite frontend build step anymore. Netlify only installs the two Netlify packages used by the Functions.
+## Why this app exists
 
-## Netlify settings
+At festivals it is easy to lose each other. Calling or texting often does not work well because of noise, crowds, bad reception, or vague directions like “near the left speaker” or “somewhere behind the tent”.
 
-Use these settings in Netlify:
+FestiSpot makes that easier by letting someone quickly say: this is our spot.
 
-```txt
-Base directory: leave empty
-Build command: npm run build
-Publish directory: .
-Functions directory: netlify/functions
-```
+## What the app does
 
-The build command only prints:
+- Lets a private group access the app with a shared code.
+- Lets each person create a temporary festival profile.
+- Lets users save a spot when they plan to stay there for a while.
+- Keeps the last saved spot visible when someone starts walking again.
+- Lets users hide completely when they do not want to be on the map.
+- Shows group members on a mobile map with simple visual markers.
+- Includes a people overview so friends can quickly see who is findable.
+- Includes a focused find mode to help walk toward a selected person.
+- Includes a light-up screen for crowded moments where someone wants to be seen.
+- Includes an admin area for managing the group.
 
-```bash
-echo "No frontend build step required."
-```
+## Privacy principle
 
-## Required environment variables
+FestiSpot is designed around manual spot sharing. Users are not followed in the background. A person only appears on the map when they choose to share a spot, and hidden users do not expose coordinates to the group.
 
-Add this in Netlify under **Site configuration > Environment variables**:
+## Design direction
 
-```bash
-SESSION_JWT_SECRET=replace-with-a-long-random-secret
-```
-
-Example value:
-
-```bash
-SESSION_JWT_SECRET=change-this-to-a-long-random-secret-64-characters-or-more
-```
-
-No Supabase variables are needed.
-
-## Netlify Database
-
-This project includes a database migration at:
-
-```txt
-netlify/database/migrations/0001_festispot_schema/migration.sql
-```
-
-Netlify Database uses migrations and deploys them with your site. Netlify documents that Netlify Database is a managed Postgres database integrated with Netlify, and that migrations live under `netlify/database/migrations/`. The Functions use the official `@netlify/database` package.
-
-If this is the first deploy for this site, open your Netlify project and go to **Database**. If Netlify asks to create or enable a database, enable it. Then redeploy.
-
-## Netlify Blobs
-
-Uploaded images are stored in a site-wide Netlify Blob store called:
-
-```txt
-festispot-images
-```
-
-Images are served through:
-
-```txt
-/.netlify/functions/image?key=...
-```
-
-## Default session
-
-The migration creates one default session. The session ID is used internally by the app and is not shown to users:
-
-```txt
-Session ID: 11111111-1111-4111-8111-111111111111
-User code: 6644
-Admin code: 9712
-```
-
-Normal users only enter 6644. Admins enter 9712 and are sent to the admin page.
-
-
-## Admin access
-
-Normal users enter only:
-
-```txt
-6644
-```
-
-Admins enter:
-
-```txt
-9712
-```
-
-Admin users go to an admin page where they can remove users from the group. The admin token includes an `admin` role, and the `remove-user` function checks that role before deleting anyone.
-
-## Creating your own session
-
-You can add a new row in Netlify Database in the `sessions` table.
-
-Required fields:
-
-```txt
-name: your festival/session name
-passcode_hash: sha256 hash of a four digit passcode
-expires_at: when the session expires
-```
-
-For quick testing you may also put the plain four digit user passcode in `passcode_hash`, because the validate function accepts both a SHA-256 hash and a plain passcode. For production, use SHA-256. The admin code is configured in the backend code as a SHA-256 hash and currently logs admins in with elevated permissions.
-
-## Data model
-
-Tables:
-
-- `sessions`
-- `users`
-- `location_updates`
-- `signals`
-
-Spot states:
-
-```txt
-locked = user has locked in a spot and is probably staying there
-moving = user is walking, but their last spot remains visible
-hidden = user is fully off the map and coordinates are not returned
-```
-
-## Important privacy behavior
-
-Hidden users are returned without coordinates. Users with status `locked` or `moving` can show their latest saved spot. This supports the new product goal: FestiSpot is for sharing a place where you are staying for a while, not for live tracking while moving.
-
-## Deploy advice
-
-Because the earlier deploys had npm/cache problems, do this on the first deploy of this version:
-
-1. Push this version to GitHub.
-2. In Netlify, choose **Clear cache and deploy site**.
-3. Make sure `SESSION_JWT_SECRET` is set.
-4. Make sure Netlify Database is enabled for the project.
-5. Deploy.
-
-## Local development
-
-Install the Netlify CLI and run:
-
-```bash
-npm install
-netlify dev
-```
-
-Netlify Database local development is handled by the Netlify CLI.
-
-
-## Default session self-healing
-
-This version creates the required database tables and default session automatically from the Netlify Functions on first use. The migration file is still included, but the app no longer depends on a manual migration before the login code works.
-
-Login codes:
-
-```txt
-Session ID: 11111111-1111-4111-8111-111111111111
-User code: 6644
-Admin code: 9712
-```
-
-If login still fails, check the browser Network tab for `/.netlify/functions/validate-passcode`. A response mentioning database connection or project linking means Netlify Database is not enabled or not linked to the site yet.
-
-
-## Important: previous migration error fix
-
-This version does not include any Netlify Database migration folders. The serverless functions create the required database tables automatically on first use.
-
-If your GitHub repository still contains old folders like:
-
-```txt
-netlify/database/migrations/0001_festradar_schema
-netlify/database/migrations/0001_festispot_schema
-```
-
-delete the entire `netlify/database` folder from the repository before deploying this version. Otherwise Netlify will still read the old duplicate migrations and fail before the app starts.
-
-After replacing the repo contents, use **Clear cache and deploy site** once in Netlify.
+The app has a dark festival-style interface with neon accents, large touch-friendly buttons, and a layout made for mobile phones.

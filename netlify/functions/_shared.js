@@ -2,7 +2,7 @@ const crypto = require('crypto');
 
 const SECRET = process.env.SESSION_JWT_SECRET || 'local-dev-secret-change-me';
 const DEFAULT_SESSION_ID = '11111111-1111-4111-8111-111111111111';
-const DEFAULT_SESSION_PASSCODE_HASH = '926c7551fea60fd3b11ff8f1693384f69d342f54b02288755411fd8c721b56fa';
+const NORMAL_PASSCODE_HASH = '926c7551fea60fd3b11ff8f1693384f69d342f54b02288755411fd8c721b56fa';
 const ADMIN_PASSCODE_HASH = '8672a05a37da52552dc658cd5d2292fc665722ae8bca0eb6549d9995e5dfd429';
 let dbPromise;
 let initPromise;
@@ -32,6 +32,10 @@ function parseBody(event) {
 
 function sha256(value) {
   return crypto.createHash('sha256').update(String(value)).digest('hex');
+}
+
+function newId() {
+  return crypto.randomUUID();
 }
 
 function base64url(input) {
@@ -70,29 +74,35 @@ async function rawSql(strings, ...values) {
   return db.sql(strings, ...values);
 }
 
+function rows(result) {
+  if (Array.isArray(result)) return result;
+  if (result && Array.isArray(result.rows)) return result.rows;
+  if (result && Array.isArray(result.data)) return result.data;
+  return [];
+}
+
 async function ensureDatabase() {
   if (!initPromise) {
     initPromise = (async () => {
-      await rawSql`create extension if not exists pgcrypto`;
       await rawSql`create table if not exists sessions (
-        id uuid primary key default gen_random_uuid(),
+        id uuid primary key,
         name text not null,
         passcode_hash text not null,
         created_at timestamptz default now(),
         expires_at timestamptz not null
       )`;
       await rawSql`create table if not exists users (
-        id uuid primary key default gen_random_uuid(),
+        id uuid primary key,
         session_id uuid references sessions(id) on delete cascade,
         name text not null,
         profile_photo_url text,
         is_visible boolean default false,
-        location_status text not null default 'hidden' check (location_status in ('locked', 'moving', 'hidden')),
+        location_status text not null default 'hidden',
         created_at timestamptz default now(),
         last_seen_at timestamptz
       )`;
       await rawSql`create table if not exists location_updates (
-        id uuid primary key default gen_random_uuid(),
+        id uuid primary key,
         user_id uuid references users(id) on delete cascade,
         session_id uuid references sessions(id) on delete cascade,
         latitude double precision not null,
@@ -105,7 +115,7 @@ async function ensureDatabase() {
         updated_at timestamptz default now()
       )`;
       await rawSql`create table if not exists signals (
-        id uuid primary key default gen_random_uuid(),
+        id uuid primary key,
         session_id uuid references sessions(id) on delete cascade,
         from_user_id uuid references users(id) on delete cascade,
         to_user_id uuid references users(id) on delete cascade,
@@ -114,25 +124,24 @@ async function ensureDatabase() {
         expires_at timestamptz not null,
         seen_at timestamptz
       )`;
+      await rawSql`alter table users add column if not exists location_status text not null default 'hidden'`;
+      await rawSql`alter table users add column if not exists last_seen_at timestamptz`;
+      await rawSql`alter table location_updates add column if not exists source text not null default 'gps'`;
+      await rawSql`alter table location_updates add column if not exists location_photo_url text`;
+      await rawSql`alter table location_updates add column if not exists stage_marker jsonb`;
+      await rawSql`alter table location_updates add column if not exists updated_at timestamptz default now()`;
       await rawSql`create index if not exists idx_users_session_id on users(session_id)`;
       await rawSql`create index if not exists idx_locations_session_updated on location_updates(session_id, updated_at desc)`;
       await rawSql`create index if not exists idx_signals_receiver on signals(session_id, to_user_id, seen_at, expires_at)`;
       await rawSql`insert into sessions (id, name, passcode_hash, expires_at)
-        values (${DEFAULT_SESSION_ID}, 'FestiSpot Demo', ${DEFAULT_SESSION_PASSCODE_HASH}, now() + interval '30 days')
+        values (${DEFAULT_SESSION_ID}, 'FestiSpot', ${NORMAL_PASSCODE_HASH}, now() + interval '30 days')
         on conflict (id) do update set
-          name = excluded.name,
-          passcode_hash = excluded.passcode_hash,
+          name = 'FestiSpot',
+          passcode_hash = ${NORMAL_PASSCODE_HASH},
           expires_at = greatest(sessions.expires_at, now() + interval '30 days')`;
     })();
   }
   return initPromise;
-}
-
-function rows(result) {
-  if (Array.isArray(result)) return result;
-  if (result && Array.isArray(result.rows)) return result.rows;
-  if (result && Array.isArray(result.data)) return result.data;
-  return [];
 }
 
 async function query(strings, ...values) {
@@ -183,4 +192,4 @@ function toCamelUser(row, location) {
   return user;
 }
 
-module.exports = { json, preflight, parseBody, sha256, verifyToken, query, getValidSession, tokenForSession, requireAdmin, toCamelUser, ensureDatabase, DEFAULT_SESSION_ID, ADMIN_PASSCODE_HASH };
+module.exports = { json, preflight, parseBody, sha256, verifyToken, query, rawSql, rows, getValidSession, tokenForSession, requireAdmin, toCamelUser, ensureDatabase, DEFAULT_SESSION_ID, NORMAL_PASSCODE_HASH, ADMIN_PASSCODE_HASH, newId };

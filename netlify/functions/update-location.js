@@ -1,4 +1,4 @@
-const { json, preflight, parseBody, verifyToken, getValidSession, query } = require('./_shared');
+const { json, preflight, parseBody, verifyToken, getValidSession, query, newId } = require('./_shared');
 
 exports.handler = async (event) => {
   const pf = preflight(event); if (pf) return pf;
@@ -9,8 +9,8 @@ exports.handler = async (event) => {
     if (!body.userId || typeof body.latitude !== 'number' || typeof body.longitude !== 'number') return json(400, { ok: false, error: 'Missing location data' });
     const now = new Date().toISOString();
     const location = await query`
-      insert into location_updates (user_id, session_id, latitude, longitude, accuracy, source, location_photo_url, stage_marker, updated_at)
-      values (${body.userId}, ${token.sessionId}, ${body.latitude}, ${body.longitude}, ${body.accuracy || null}, 'gps', ${body.locationPhotoUrl || null}, ${body.stageMarker ? JSON.stringify(body.stageMarker) : null}::jsonb, ${now})
+      insert into location_updates (id, user_id, session_id, latitude, longitude, accuracy, source, location_photo_url, stage_marker, updated_at)
+      values (${newId()}, ${body.userId}, ${token.sessionId}, ${body.latitude}, ${body.longitude}, ${body.accuracy || null}, 'gps', ${body.locationPhotoUrl || null}, ${body.stageMarker ? JSON.stringify(body.stageMarker) : null}::jsonb, ${now})
       returning *
     `;
     await query`
