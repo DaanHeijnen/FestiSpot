@@ -179,7 +179,8 @@ function requireAdmin(token) {
 }
 
 function toCamelUser(row, location) {
-  const status = row.location_status || (row.is_visible ? 'locked' : 'hidden');
+  let status = row.location_status || (row.is_visible ? 'locked' : 'hidden');
+  if (status === 'hidden' && row.is_visible && location) status = 'locked';
   const user = {
     id: row.id,
     name: row.name,
