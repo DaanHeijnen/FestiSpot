@@ -1,7 +1,10 @@
 const crypto = require('crypto');
 
 const SECRET = process.env.SESSION_JWT_SECRET || 'local-dev-secret-change-me';
+const DEFAULT_SESSION_ID = '11111111-1111-4111-8111-111111111111';
+const DEFAULT_SESSION_PASSCODE_HASH = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4';
 let dbPromise;
+let initPromise;
 
 function json(statusCode, body) {
   return {
@@ -61,6 +64,69 @@ async function getDb() {
   return dbPromise;
 }
 
+async function rawSql(strings, ...values) {
+  const db = await getDb();
+  return db.sql(strings, ...values);
+}
+
+async function ensureDatabase() {
+  if (!initPromise) {
+    initPromise = (async () => {
+      await rawSql`create extension if not exists pgcrypto`;
+      await rawSql`create table if not exists sessions (
+        id uuid primary key default gen_random_uuid(),
+        name text not null,
+        passcode_hash text not null,
+        created_at timestamptz default now(),
+        expires_at timestamptz not null
+      )`;
+      await rawSql`create table if not exists users (
+        id uuid primary key default gen_random_uuid(),
+        session_id uuid references sessions(id) on delete cascade,
+        name text not null,
+        profile_photo_url text,
+        is_visible boolean default false,
+        location_status text not null default 'hidden' check (location_status in ('locked', 'moving', 'hidden')),
+        created_at timestamptz default now(),
+        last_seen_at timestamptz
+      )`;
+      await rawSql`create table if not exists location_updates (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid references users(id) on delete cascade,
+        session_id uuid references sessions(id) on delete cascade,
+        latitude double precision not null,
+        longitude double precision not null,
+        accuracy double precision,
+        source text not null default 'gps',
+        location_photo_url text,
+        stage_marker jsonb,
+        created_at timestamptz default now(),
+        updated_at timestamptz default now()
+      )`;
+      await rawSql`create table if not exists signals (
+        id uuid primary key default gen_random_uuid(),
+        session_id uuid references sessions(id) on delete cascade,
+        from_user_id uuid references users(id) on delete cascade,
+        to_user_id uuid references users(id) on delete cascade,
+        type text not null,
+        created_at timestamptz default now(),
+        expires_at timestamptz not null,
+        seen_at timestamptz
+      )`;
+      await rawSql`create index if not exists idx_users_session_id on users(session_id)`;
+      await rawSql`create index if not exists idx_locations_session_updated on location_updates(session_id, updated_at desc)`;
+      await rawSql`create index if not exists idx_signals_receiver on signals(session_id, to_user_id, seen_at, expires_at)`;
+      await rawSql`insert into sessions (id, name, passcode_hash, expires_at)
+        values (${DEFAULT_SESSION_ID}, 'FestRadar Demo', ${DEFAULT_SESSION_PASSCODE_HASH}, now() + interval '30 days')
+        on conflict (id) do update set
+          name = excluded.name,
+          passcode_hash = excluded.passcode_hash,
+          expires_at = greatest(sessions.expires_at, now() + interval '30 days')`;
+    })();
+  }
+  return initPromise;
+}
+
 function rows(result) {
   if (Array.isArray(result)) return result;
   if (result && Array.isArray(result.rows)) return result.rows;
@@ -69,12 +135,13 @@ function rows(result) {
 }
 
 async function query(strings, ...values) {
-  const db = await getDb();
-  return rows(await db.sql(strings, ...values));
+  await ensureDatabase();
+  return rows(await rawSql(strings, ...values));
 }
 
 async function getValidSession(sessionId) {
-  const result = await query`select id, name, passcode_hash, expires_at from sessions where id = ${sessionId} limit 1`;
+  const cleanSessionId = sessionId || DEFAULT_SESSION_ID;
+  const result = await query`select id, name, passcode_hash, expires_at from sessions where id = ${cleanSessionId} limit 1`;
   const session = result[0];
   if (!session) throw new Error('Session not found');
   if (new Date(session.expires_at).getTime() < Date.now()) throw new Error('Session expired');
@@ -111,4 +178,4 @@ function toCamelUser(row, location) {
   return user;
 }
 
-module.exports = { json, preflight, parseBody, sha256, verifyToken, query, getValidSession, tokenForSession, toCamelUser };
+module.exports = { json, preflight, parseBody, sha256, verifyToken, query, getValidSession, tokenForSession, toCamelUser, ensureDatabase, DEFAULT_SESSION_ID };

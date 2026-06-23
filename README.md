@@ -136,3 +136,17 @@ netlify dev
 ```
 
 Netlify Database local development is handled by the Netlify CLI.
+
+
+## Demo session self-healing
+
+This version creates the required database tables and demo session automatically from the Netlify Functions on first use. The migration file is still included, but the app no longer depends on a manual migration before the passcode works.
+
+Demo login:
+
+```txt
+Session ID: 11111111-1111-4111-8111-111111111111
+Passcode: 1234
+```
+
+If login still fails, check the browser Network tab for `/.netlify/functions/validate-passcode`. A response mentioning database connection or project linking means Netlify Database is not enabled or not linked to the site yet.
