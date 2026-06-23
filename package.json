@@ -1,6 +1,6 @@
 {
   "name": "festispot-netlify",
-  "version": "2.0.0",
+  "version": "2.2.0",
   "private": true,
   "description": "FestiSpot mobile spot-sharing app for Netlify Database and Netlify Blobs.",
   "type": "commonjs",

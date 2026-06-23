@@ -64,7 +64,19 @@ function verifyToken(event) {
 
 async function getDb() {
   if (!dbPromise) {
-    dbPromise = import('@netlify/database').then(({ getDatabase }) => getDatabase());
+    dbPromise = import('@netlify/database').then(({ getDatabase }) => {
+      const connectionString =
+        process.env.NETLIFY_DB_URL ||
+        process.env.NETLIFY_DATABASE_URL ||
+        process.env.DATABASE_URL ||
+        process.env.POSTGRES_URL;
+
+      if (connectionString) {
+        return getDatabase({ connectionString });
+      }
+
+      return getDatabase();
+    });
   }
   return dbPromise;
 }
@@ -167,7 +179,8 @@ function requireAdmin(token) {
 }
 
 function toCamelUser(row, location) {
-  const status = row.location_status || (row.is_visible ? 'locked' : 'hidden');
+  let status = row.location_status || (row.is_visible ? 'locked' : 'hidden');
+  if (status === 'hidden' && row.is_visible && location) status = 'locked';
   const user = {
     id: row.id,
     name: row.name,
