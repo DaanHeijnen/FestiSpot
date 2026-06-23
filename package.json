@@ -1,0 +1,18 @@
+{
+  "name": "festispot-netlify",
+  "version": "2.0.0",
+  "private": true,
+  "description": "FestiSpot mobile spot-sharing app for Netlify Database and Netlify Blobs.",
+  "type": "commonjs",
+  "scripts": {
+    "build": "echo \"No frontend build step required.\"",
+    "dev": "netlify dev"
+  },
+  "dependencies": {
+    "@netlify/database": "latest",
+    "@netlify/blobs": "latest"
+  },
+  "engines": {
+    "node": ">=20.12.2"
+  }
+}
