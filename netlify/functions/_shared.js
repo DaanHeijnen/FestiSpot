@@ -64,7 +64,19 @@ function verifyToken(event) {
 
 async function getDb() {
   if (!dbPromise) {
-    dbPromise = import('@netlify/database').then(({ getDatabase }) => getDatabase());
+    dbPromise = import('@netlify/database').then(({ getDatabase }) => {
+      const connectionString =
+        process.env.NETLIFY_DB_URL ||
+        process.env.NETLIFY_DATABASE_URL ||
+        process.env.DATABASE_URL ||
+        process.env.POSTGRES_URL;
+
+      if (connectionString) {
+        return getDatabase({ connectionString });
+      }
+
+      return getDatabase();
+    });
   }
   return dbPromise;
 }
