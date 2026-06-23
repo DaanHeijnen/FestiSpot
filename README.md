@@ -169,3 +169,19 @@ Admin code: 9712
 ```
 
 If login still fails, check the browser Network tab for `/.netlify/functions/validate-passcode`. A response mentioning database connection or project linking means Netlify Database is not enabled or not linked to the site yet.
+
+
+## Important: previous migration error fix
+
+This version does not include any Netlify Database migration folders. The serverless functions create the required database tables automatically on first use.
+
+If your GitHub repository still contains old folders like:
+
+```txt
+netlify/database/migrations/0001_festradar_schema
+netlify/database/migrations/0001_festispot_schema
+```
+
+delete the entire `netlify/database` folder from the repository before deploying this version. Otherwise Netlify will still read the old duplicate migrations and fail before the app starts.
+
+After replacing the repo contents, use **Clear cache and deploy site** once in Netlify.
