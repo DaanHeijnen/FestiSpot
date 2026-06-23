@@ -1,4 +1,4 @@
-const { json, preflight, parseBody, verifyToken, getValidSession, query } = require('./_shared');
+const { json, preflight, parseBody, verifyToken, getValidSession, query, newId } = require('./_shared');
 
 exports.handler = async (event) => {
   const pf = preflight(event); if (pf) return pf;
@@ -8,8 +8,8 @@ exports.handler = async (event) => {
     const { fromUserId, toUserId, type } = parseBody(event);
     if (!fromUserId || !toUserId) return json(400, { ok: false, error: 'Missing signal data' });
     const created = await query`
-      insert into signals (session_id, from_user_id, to_user_id, type, expires_at)
-      values (${token.sessionId}, ${fromUserId}, ${toUserId}, ${type || 'im_here'}, now() + interval '5 minutes')
+      insert into signals (id, session_id, from_user_id, to_user_id, type, expires_at)
+      values (${newId()}, ${token.sessionId}, ${fromUserId}, ${toUserId}, ${type || 'im_here'}, now() + interval '5 minutes')
       returning *
     `;
     return json(200, { ok: true, signal: created[0] });
