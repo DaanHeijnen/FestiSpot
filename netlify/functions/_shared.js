@@ -2,7 +2,8 @@ const crypto = require('crypto');
 
 const SECRET = process.env.SESSION_JWT_SECRET || 'local-dev-secret-change-me';
 const DEFAULT_SESSION_ID = '11111111-1111-4111-8111-111111111111';
-const DEFAULT_SESSION_PASSCODE_HASH = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4';
+const DEFAULT_SESSION_PASSCODE_HASH = '926c7551fea60fd3b11ff8f1693384f69d342f54b02288755411fd8c721b56fa';
+const ADMIN_PASSCODE_HASH = '8672a05a37da52552dc658cd5d2292fc665722ae8bca0eb6549d9995e5dfd429';
 let dbPromise;
 let initPromise;
 
@@ -117,7 +118,7 @@ async function ensureDatabase() {
       await rawSql`create index if not exists idx_locations_session_updated on location_updates(session_id, updated_at desc)`;
       await rawSql`create index if not exists idx_signals_receiver on signals(session_id, to_user_id, seen_at, expires_at)`;
       await rawSql`insert into sessions (id, name, passcode_hash, expires_at)
-        values (${DEFAULT_SESSION_ID}, 'FestRadar Demo', ${DEFAULT_SESSION_PASSCODE_HASH}, now() + interval '30 days')
+        values (${DEFAULT_SESSION_ID}, 'FestiSpot Demo', ${DEFAULT_SESSION_PASSCODE_HASH}, now() + interval '30 days')
         on conflict (id) do update set
           name = excluded.name,
           passcode_hash = excluded.passcode_hash,
@@ -148,8 +149,12 @@ async function getValidSession(sessionId) {
   return session;
 }
 
-function tokenForSession(sessionId) {
-  return signPayload({ sessionId, exp: Date.now() + 1000 * 60 * 60 * 12 });
+function tokenForSession(sessionId, role = 'user') {
+  return signPayload({ sessionId, role, exp: Date.now() + 1000 * 60 * 60 * 12 });
+}
+
+function requireAdmin(token) {
+  if (!token || token.role !== 'admin') throw new Error('Admin access required');
 }
 
 function toCamelUser(row, location) {
@@ -178,4 +183,4 @@ function toCamelUser(row, location) {
   return user;
 }
 
-module.exports = { json, preflight, parseBody, sha256, verifyToken, query, getValidSession, tokenForSession, toCamelUser, ensureDatabase, DEFAULT_SESSION_ID };
+module.exports = { json, preflight, parseBody, sha256, verifyToken, query, getValidSession, tokenForSession, requireAdmin, toCamelUser, ensureDatabase, DEFAULT_SESSION_ID, ADMIN_PASSCODE_HASH };

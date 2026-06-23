@@ -1,6 +1,6 @@
-# FestRadar
+# FestiSpot
 
-FestRadar is a mobile-first private festival spot-sharing webapp.
+FestiSpot is a mobile-first private festival spot-sharing webapp.
 
 This version is built to run fully on Netlify:
 
@@ -49,7 +49,7 @@ No Supabase variables are needed.
 This project includes a database migration at:
 
 ```txt
-netlify/database/migrations/0001_festradar_schema/migration.sql
+netlify/database/migrations/0001_festispot_schema/migration.sql
 ```
 
 Netlify Database uses migrations and deploys them with your site. Netlify documents that Netlify Database is a managed Postgres database integrated with Netlify, and that migrations live under `netlify/database/migrations/`. The Functions use the official `@netlify/database` package.
@@ -61,7 +61,7 @@ If this is the first deploy for this site, open your Netlify project and go to *
 Uploaded images are stored in a site-wide Netlify Blob store called:
 
 ```txt
-festradar-images
+festispot-images
 ```
 
 Images are served through:
@@ -70,16 +70,34 @@ Images are served through:
 /.netlify/functions/image?key=...
 ```
 
-## Demo session
+## Default session
 
-The migration creates one demo session:
+The migration creates one default session. The session ID is used internally by the app and is not shown to users:
 
 ```txt
 Session ID: 11111111-1111-4111-8111-111111111111
-Passcode: 1234
+User code: 6644
+Admin code: 9712
 ```
 
-Use that to test the app after deploy.
+Normal users only enter 6644. Admins enter 9712 and are sent to the admin page.
+
+
+## Admin access
+
+Normal users enter only:
+
+```txt
+6644
+```
+
+Admins enter:
+
+```txt
+9712
+```
+
+Admin users go to an admin page where they can remove users from the group. The admin token includes an `admin` role, and the `remove-user` function checks that role before deleting anyone.
 
 ## Creating your own session
 
@@ -93,7 +111,7 @@ passcode_hash: sha256 hash of a four digit passcode
 expires_at: when the session expires
 ```
 
-For quick testing you may also put the plain four digit passcode in `passcode_hash`, because the validate function accepts both a SHA-256 hash and a plain passcode. For production, use SHA-256.
+For quick testing you may also put the plain four digit user passcode in `passcode_hash`, because the validate function accepts both a SHA-256 hash and a plain passcode. For production, use SHA-256. The admin code is configured in the backend code as a SHA-256 hash and currently logs admins in with elevated permissions.
 
 ## Data model
 
@@ -114,7 +132,7 @@ hidden = user is fully off the map and coordinates are not returned
 
 ## Important privacy behavior
 
-Hidden users are returned without coordinates. Users with status `locked` or `moving` can show their latest saved spot. This supports the new product goal: FestRadar is for sharing a place where you are staying for a while, not for live tracking while moving.
+Hidden users are returned without coordinates. Users with status `locked` or `moving` can show their latest saved spot. This supports the new product goal: FestiSpot is for sharing a place where you are staying for a while, not for live tracking while moving.
 
 ## Deploy advice
 
@@ -138,15 +156,16 @@ netlify dev
 Netlify Database local development is handled by the Netlify CLI.
 
 
-## Demo session self-healing
+## Default session self-healing
 
-This version creates the required database tables and demo session automatically from the Netlify Functions on first use. The migration file is still included, but the app no longer depends on a manual migration before the passcode works.
+This version creates the required database tables and default session automatically from the Netlify Functions on first use. The migration file is still included, but the app no longer depends on a manual migration before the login code works.
 
-Demo login:
+Login codes:
 
 ```txt
 Session ID: 11111111-1111-4111-8111-111111111111
-Passcode: 1234
+User code: 6644
+Admin code: 9712
 ```
 
 If login still fails, check the browser Network tab for `/.netlify/functions/validate-passcode`. A response mentioning database connection or project linking means Netlify Database is not enabled or not linked to the site yet.

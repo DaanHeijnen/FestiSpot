@@ -4,7 +4,7 @@ const { json, preflight, parseBody, verifyToken, getValidSession } = require('./
 async function getBlobStore(event) {
   const mod = await import('@netlify/blobs');
   if (typeof mod.connectLambda === 'function') mod.connectLambda(event);
-  return mod.getStore('festradar-images');
+  return mod.getStore('festispot-images');
 }
 
 function safeExt(contentType) {

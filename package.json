@@ -1,8 +1,8 @@
 {
-  "name": "festradar-netlify",
+  "name": "festispot-netlify",
   "version": "2.0.0",
   "private": true,
-  "description": "FestRadar mobile spot-sharing app for Netlify Database and Netlify Blobs.",
+  "description": "FestiSpot mobile spot-sharing app for Netlify Database and Netlify Blobs.",
   "type": "commonjs",
   "scripts": {
     "build": "echo \"No frontend build step required.\"",

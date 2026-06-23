@@ -1,7 +1,7 @@
 async function getBlobStore(event) {
   const mod = await import('@netlify/blobs');
   if (typeof mod.connectLambda === 'function') mod.connectLambda(event);
-  return mod.getStore('festradar-images');
+  return mod.getStore('festispot-images');
 }
 
 exports.handler = async (event) => {
